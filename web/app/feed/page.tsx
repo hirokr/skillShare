@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet, apiPatch, apiRequest } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -23,6 +23,15 @@ type FeedPost = {
 	author: string | null;
 };
 
+type CommentItem = {
+	id: string;
+	postId: string;
+	author: string;
+	content: string;
+	createdAt: string;
+	parentComment: string | null;
+};
+
 const FeedPage = () => {
 	const [posts, setPosts] = useState<FeedPost[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +46,19 @@ const FeedPage = () => {
 	const [editTitle, setEditTitle] = useState("");
 	const [editContent, setEditContent] = useState("");
 	const [isSavingEdit, setIsSavingEdit] = useState(false);
+	const [commentsByPost, setCommentsByPost] = useState<
+		Record<string, CommentItem[]>
+	>({});
+	const [commentsOpen, setCommentsOpen] = useState<Record<string, boolean>>({});
+	const [commentsLoaded, setCommentsLoaded] = useState<Record<string, boolean>>(
+		{},
+	);
+	const [commentLoading, setCommentLoading] = useState<Record<string, boolean>>(
+		{},
+	);
+	const [commentInputs, setCommentInputs] = useState<Record<string, string>>(
+		{},
+	);
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 	const editFormRef = useRef<HTMLFormElement | null>(null);
 
@@ -173,6 +195,50 @@ const FeedPage = () => {
 		}
 	}
 
+	async function loadComments(postId: string, force = false) {
+		if (!force && commentsLoaded[postId]) return;
+		setCommentLoading((prev) => ({ ...prev, [postId]: true }));
+		try {
+			const data = await apiGet(`/comments?postId=${postId}&limit=20`);
+			const payload = data as { comments: CommentItem[] };
+			setCommentsByPost((prev) => ({
+				...prev,
+				[postId]: payload.comments ?? [],
+			}));
+			setCommentsLoaded((prev) => ({ ...prev, [postId]: true }));
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to load comments");
+		} finally {
+			setCommentLoading((prev) => ({ ...prev, [postId]: false }));
+		}
+	}
+
+	async function toggleComments(postId: string) {
+		const isOpen = commentsOpen[postId];
+		if (isOpen) {
+			setCommentsOpen((prev) => ({ ...prev, [postId]: false }));
+			return;
+		}
+		setCommentsOpen((prev) => ({ ...prev, [postId]: true }));
+		await loadComments(postId);
+	}
+
+	async function submitComment(postId: string) {
+		const content = (commentInputs[postId] || "").trim();
+		if (!content) {
+			setError("Comment is required");
+			return;
+		}
+		try {
+			await apiPost("/comments", { postId, content });
+			setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
+			await loadComments(postId, true);
+			setCommentsOpen((prev) => ({ ...prev, [postId]: true }));
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to add comment");
+		}
+	}
+
 	return (
 		<div className='space-y-4'>
 			<div className='flex items-center justify-between'>
@@ -262,12 +328,64 @@ const FeedPage = () => {
 						) : null}
 					</CardContent>
 					<CardFooter>
-						<div className='flex flex-wrap gap-2 text-xs text-muted-foreground'>
-							{post.tags.map((tag) => (
-								<span key={tag} className='rounded bg-muted px-2 py-0.5'>
-									#{tag}
-								</span>
-							))}
+						<div className='w-full space-y-3'>
+							<div className='flex flex-wrap gap-2 text-xs text-muted-foreground'>
+								{post.tags.map((tag) => (
+									<span key={tag} className='rounded bg-muted px-2 py-0.5'>
+										#{tag}
+									</span>
+								))}
+							</div>
+
+							<div className='space-y-2'>
+								<Button
+									variant='outline'
+									type='button'
+									onClick={() => toggleComments(post.id)}
+									disabled={commentLoading[post.id]}
+								>
+									{commentLoading[post.id]
+										? "Loading..."
+										: commentsOpen[post.id]
+											? "Hide comments"
+											: commentsLoaded[post.id]
+												? "Show comments"
+												: "Load comments"}
+									<span className='ml-2 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground'>
+										{commentsLoaded[post.id]
+											? (commentsByPost[post.id] || []).length
+											: "-"}
+									</span>
+								</Button>
+
+								{commentsOpen[post.id]
+									? (commentsByPost[post.id] || []).map((comment) => (
+											<div
+												key={comment.id}
+												className='text-sm text-muted-foreground'
+											>
+												{comment.content}
+											</div>
+										))
+									: null}
+
+								<div className='flex gap-2'>
+									<input
+										className='h-9 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm'
+										placeholder='Write a comment...'
+										value={commentInputs[post.id] || ""}
+										onChange={(event) =>
+											setCommentInputs((prev) => ({
+												...prev,
+												[post.id]: event.target.value,
+											}))
+										}
+									/>
+									<Button type='button' onClick={() => submitComment(post.id)}>
+										Comment
+									</Button>
+								</div>
+							</div>
 						</div>
 					</CardFooter>
 				</Card>
