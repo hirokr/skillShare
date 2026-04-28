@@ -137,6 +137,11 @@ function getServerRsaPublicKey() {
 	return rsa.deserializePublicKey(serialized);
 }
 
+function getServerRsaPrivateKey() {
+	const serialized = requireEnv("SERVER_RSA_PRIVATE_KEY");
+	return rsa.deserializePrivateKey(serialized);
+}
+
 function getServerEccPublicKey() {
 	const serialized = requireEnv("SERVER_ECC_PUBLIC_KEY");
 	return ecc.deserializePublicKey(serialized);
@@ -460,6 +465,36 @@ export async function session(req, res) {
 	return res.status(200).json({ userId: user.id, role: user.role });
 }
 
+export async function keys(req, res) {
+	try {
+		const userId = req.user?.id;
+		if (!userId) {
+			return res.status(401).json({ message: "Unauthorized" });
+		}
+
+		const user = await User.findById(userId).select(
+			"encryptedPrivateKey encryptedEccPrivateKey",
+		);
+		if (!user) {
+			return res.status(404).json({ message: "User not found" });
+		}
+
+		const serverPriv = getServerRsaPrivateKey();
+		const rsaPrivateKey = rsa.decrypt(user.encryptedPrivateKey, serverPriv);
+		const eccPrivateKey = user.encryptedEccPrivateKey
+			? rsa.decrypt(user.encryptedEccPrivateKey, serverPriv)
+			: null;
+
+		return res.status(200).json({
+			userId,
+			rsaPrivateKey,
+			eccPrivateKey,
+		});
+	} catch (error) {
+		return res.status(500).json({ message: "Failed to load keys" });
+	}
+}
+
 export default {
 	register,
 	login,
@@ -468,4 +503,5 @@ export default {
 	me,
 	changePassword,
 	session,
+	keys,
 };

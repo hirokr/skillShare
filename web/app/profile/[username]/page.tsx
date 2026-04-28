@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import {
 	Card,
 	CardContent,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type PublicProfile = {
+	userId: string;
 	username: string | null;
 	displayName: string;
 	avatarUrl: string | null;
@@ -55,6 +57,7 @@ function formatDate(value: string) {
 }
 
 export default function ProfilePage() {
+	const router = useRouter();
 	const params = useParams();
 	const usernameParam = params?.username;
 	const username = useMemo(() => {
@@ -70,6 +73,7 @@ export default function ProfilePage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isPaging, setIsPaging] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [isStartingChat, setIsStartingChat] = useState(false);
 
 	useEffect(() => {
 		if (!username) return;
@@ -164,9 +168,36 @@ export default function ProfilePage() {
 						Verified, decrypted data.
 					</p>
 				</div>
-				<Button asChild variant='outline'>
-					<Link href='/feed'>Back to feed</Link>
-				</Button>
+				<div className='flex items-center gap-2'>
+					<Button asChild variant='outline'>
+						<Link href='/feed'>Back to feed</Link>
+					</Button>
+					<Button
+						disabled={!profile.allowMessages || isStartingChat}
+						onClick={async () => {
+							if (!profile.allowMessages) return;
+							setIsStartingChat(true);
+							setError(null);
+							try {
+								const data = await apiPost("/messages/conversations", {
+									recipientId: profile.userId,
+								});
+								const payload = data as { conversationId: string };
+								router.push(`/messages/${payload.conversationId}`);
+							} catch (err) {
+								setError(
+									err instanceof Error
+										? err.message
+										: "Unable to start conversation",
+								);
+							} finally {
+								setIsStartingChat(false);
+							}
+						}}
+					>
+						{profile.allowMessages ? "Message" : "Messages disabled"}
+					</Button>
+				</div>
 			</div>
 
 			<Card className='overflow-hidden'>

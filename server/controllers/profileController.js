@@ -188,6 +188,7 @@ export async function getPublicProfile(req, res) {
 
 		return res.status(200).json({
 			profile: {
+				userId: user._id,
 				username: decrypted.username,
 				displayName: profile.displayName,
 				avatarUrl: profile.avatarUrl,

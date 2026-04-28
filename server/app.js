@@ -6,6 +6,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import postRoutes from "./routes/posts.js";
 import commentRoutes from "./routes/comments.js";
 import profileRoutes from "./routes/profiles.js";
+import messageRoutes from "./routes/messages.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,5 +29,6 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/profiles", profileRoutes);
+app.use("/api/messages", messageRoutes);
 
 export default app;

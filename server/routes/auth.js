@@ -12,6 +12,7 @@ import {
 	me,
 	changePassword,
 	session,
+	keys,
 } from "../controllers/authController.js";
 import authenticate from "../middlewares/authenticate.js";
 
@@ -23,6 +24,7 @@ router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.get("/me", authenticate, me);
 router.get("/session", authenticate, session);
+router.get("/keys", authenticate, keys);
 router.patch("/password", authenticate, changePassword);
 
 export default router;
