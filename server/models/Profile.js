@@ -42,6 +42,10 @@ const ProfileSchema = new mongoose.Schema(
 			type: String,
 			default: null,
 		},
+		encryptedSkills: {
+			type: String,
+			default: null,
+		},
 		encryptedLocation: {
 			type: String,
 			default: null,
@@ -73,7 +77,7 @@ const ProfileSchema = new mongoose.Schema(
 		hmacSignature: {
 			type: String,
 			required: true,
-			// HMAC over (encryptedBio + encryptedLocation + encryptedWebsite + userId)
+			// HMAC over (encryptedBio + encryptedSkills + encryptedLocation + encryptedWebsite + userId)
 		},
 
 		// ── Key version reference ──────────────────────────────────────────────────

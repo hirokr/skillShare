@@ -36,6 +36,60 @@ function decryptIfPresent(value, privateKey) {
 	return ecc.decrypt(value, privateKey);
 }
 
+function parseSkills(value) {
+	if (!value) return [];
+	try {
+		const parsed = JSON.parse(value);
+		if (Array.isArray(parsed)) {
+			return parsed.map((item) => String(item)).filter(Boolean);
+		}
+	} catch {
+		// Fallback to comma-separated list.
+	}
+	return String(value)
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean);
+}
+
+function normalizeSkillsInput(value) {
+	if (value == null) return null;
+	const rawList = Array.isArray(value)
+		? value.map((item) => String(item))
+		: String(value).split(",");
+
+	const clean = rawList
+		.map((item) => item.trim())
+		.filter(Boolean)
+		.map((item) => (item.length > 32 ? item.slice(0, 32) : item));
+
+	const limited = Array.from(new Set(clean)).slice(0, 20);
+	return limited.length ? JSON.stringify(limited) : null;
+}
+
+function verifyProfileMac(profile, userId, hmacKey) {
+	const fieldsWithSkills = [
+		profile.encryptedBio,
+		profile.encryptedSkills,
+		profile.encryptedLocation,
+		profile.encryptedWebsite,
+		profile.encryptedOccupation,
+		userId,
+	];
+	const fieldsLegacy = [
+		profile.encryptedBio,
+		profile.encryptedLocation,
+		profile.encryptedWebsite,
+		profile.encryptedOccupation,
+		userId,
+	];
+
+	return (
+		verifyMac(fieldsWithSkills, hmacKey, profile.hmacSignature) ||
+		verifyMac(fieldsLegacy, hmacKey, profile.hmacSignature)
+	);
+}
+
 export async function getDashboard(req, res) {
 	try {
 		const userId = req.user?.id;
@@ -62,17 +116,7 @@ export async function getDashboard(req, res) {
 			return res.status(500).json({ message: "User integrity check failed" });
 		}
 
-		const profileMacOk = verifyMac(
-			[
-				profile.encryptedBio,
-				profile.encryptedLocation,
-				profile.encryptedWebsite,
-				profile.encryptedOccupation,
-				userId,
-			],
-			hmacKey,
-			profile.hmacSignature,
-		);
+		const profileMacOk = verifyProfileMac(profile, userId, hmacKey);
 		if (!profileMacOk) {
 			return res
 				.status(500)
@@ -86,6 +130,9 @@ export async function getDashboard(req, res) {
 			email: decryptIfPresent(user.encryptedEmail, eccPrivateKey),
 			contact: decryptIfPresent(user.encryptedContact, eccPrivateKey),
 			bio: decryptIfPresent(profile.encryptedBio, eccPrivateKey),
+			skills: parseSkills(
+				decryptIfPresent(profile.encryptedSkills, eccPrivateKey),
+			),
 			location: decryptIfPresent(profile.encryptedLocation, eccPrivateKey),
 			website: decryptIfPresent(profile.encryptedWebsite, eccPrivateKey),
 			occupation: decryptIfPresent(profile.encryptedOccupation, eccPrivateKey),
@@ -105,6 +152,7 @@ export async function getDashboard(req, res) {
 				avatarUrl: profile.avatarUrl,
 				bannerUrl: profile.bannerUrl,
 				bio: decrypted.bio,
+				skills: decrypted.skills,
 				location: decrypted.location,
 				website: decrypted.website,
 				occupation: decrypted.occupation,
@@ -136,6 +184,7 @@ export async function updateProfile(req, res) {
 			avatarUrl,
 			bannerUrl,
 			bio,
+			skills,
 			location,
 			website,
 			occupation,
@@ -144,6 +193,7 @@ export async function updateProfile(req, res) {
 
 		const cleanDisplayName = normalizeText(displayName, 60);
 		const cleanBio = normalizeText(bio, 500);
+		const cleanSkills = normalizeSkillsInput(skills);
 		const cleanLocation = normalizeText(location, 120);
 		const cleanWebsite = normalizeText(website, 200);
 		const cleanOccupation = normalizeText(occupation, 120);
@@ -162,6 +212,11 @@ export async function updateProfile(req, res) {
 		if (typeof bio !== "undefined") {
 			profile.encryptedBio = cleanBio
 				? ecc.encrypt(cleanBio, eccPublicKey)
+				: null;
+		}
+		if (typeof skills !== "undefined") {
+			profile.encryptedSkills = cleanSkills
+				? ecc.encrypt(cleanSkills, eccPublicKey)
 				: null;
 		}
 		if (typeof location !== "undefined") {
@@ -190,6 +245,7 @@ export async function updateProfile(req, res) {
 		profile.hmacSignature = signMac(
 			[
 				profile.encryptedBio,
+				profile.encryptedSkills,
 				profile.encryptedLocation,
 				profile.encryptedWebsite,
 				profile.encryptedOccupation,
@@ -207,6 +263,9 @@ export async function updateProfile(req, res) {
 				avatarUrl: profile.avatarUrl,
 				bannerUrl: profile.bannerUrl,
 				bio: decryptIfPresent(profile.encryptedBio, eccPrivateKey),
+				skills: parseSkills(
+					decryptIfPresent(profile.encryptedSkills, eccPrivateKey),
+				),
 				location: decryptIfPresent(profile.encryptedLocation, eccPrivateKey),
 				website: decryptIfPresent(profile.encryptedWebsite, eccPrivateKey),
 				occupation: decryptIfPresent(

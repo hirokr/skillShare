@@ -10,7 +10,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -28,6 +33,7 @@ type DashboardProfile = {
 	avatarUrl: string | null;
 	bannerUrl: string | null;
 	bio: string | null;
+	skills: string[];
 	location: string | null;
 	website: string | null;
 	occupation: string | null;
@@ -43,12 +49,22 @@ type DashboardProfile = {
 };
 
 const URL_REGEX = /^https?:\/\//i;
+const MAX_SKILLS = 20;
+const MAX_SKILL_LENGTH = 32;
+
+function parseSkillsInput(value: string) {
+	return value
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean);
+}
 
 function validateProfileInput(values: {
 	displayName: string;
 	avatarUrl: string;
 	bannerUrl: string;
 	bio: string;
+	skills: string;
 	location: string;
 	website: string;
 	occupation: string;
@@ -65,6 +81,9 @@ function validateProfileInput(values: {
 	}
 	if (values.bio.length > 500) {
 		errors.bio = "Bio is too long";
+	}
+	if (values.skills.length > 300) {
+		errors.skills = "Skills list is too long";
 	}
 	if (values.location.length > 120) {
 		errors.location = "Location is too long";
@@ -83,6 +102,13 @@ function validateProfileInput(values: {
 	}
 	if (values.bannerUrl && !URL_REGEX.test(values.bannerUrl)) {
 		errors.bannerUrl = "Banner URL must start with http:// or https://";
+	}
+	const skillsList = parseSkillsInput(values.skills);
+	if (skillsList.length > MAX_SKILLS) {
+		errors.skills = `Limit skills to ${MAX_SKILLS}`;
+	}
+	if (skillsList.some((skill) => skill.length > MAX_SKILL_LENGTH)) {
+		errors.skills = `Each skill must be ${MAX_SKILL_LENGTH} characters or less`;
 	}
 	return errors;
 }
@@ -135,6 +161,7 @@ export default function DashboardPage() {
 				avatarUrl: String(formData.get("avatarUrl") || "").trim(),
 				bannerUrl: String(formData.get("bannerUrl") || "").trim(),
 				bio: String(formData.get("bio") || "").trim(),
+				skills: String(formData.get("skills") || "").trim(),
 				location: String(formData.get("location") || "").trim(),
 				website: String(formData.get("website") || "").trim(),
 				occupation: String(formData.get("occupation") || "").trim(),
@@ -288,6 +315,26 @@ export default function DashboardPage() {
 								{fieldErrors.occupation ? (
 									<FieldDescription className='text-red-600'>
 										{fieldErrors.occupation}
+									</FieldDescription>
+								) : null}
+							</Field>
+							<Field>
+								<FieldLabel htmlFor='skills'>Skills</FieldLabel>
+								<Input
+									id='skills'
+									name='skills'
+									maxLength={300}
+									placeholder='design, carpentry, tutoring'
+									className={
+										fieldErrors.skills
+											? "ring-1 ring-red-500 focus-visible:ring-red-500"
+											: undefined
+									}
+									defaultValue={profile.skills?.join(", ") ?? ""}
+								/>
+								{fieldErrors.skills ? (
+									<FieldDescription className='text-red-600'>
+										{fieldErrors.skills}
 									</FieldDescription>
 								) : null}
 							</Field>

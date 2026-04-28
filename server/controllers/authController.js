@@ -220,7 +220,7 @@ export async function register(req, res) {
 		});
 
 		const profileMac = signMac(
-			[null, null, null, user._id.toString()],
+			[null, null, null, null, user._id.toString()],
 			hmacKey,
 		);
 		await Profile.create({
