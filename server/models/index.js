@@ -11,16 +11,5 @@ import Comment from "./Comment.js";
 import { Conversation, Message } from "./Message.js";
 import Profile from "./Profile.js";
 import KeyStore from "./KeyStore.js";
-import { Notification, AuditLog } from "./AuditLog.js";
 
-export {
-	User,
-	Post,
-	Comment,
-	Conversation,
-	Message,
-	Profile,
-	KeyStore,
-	Notification,
-	AuditLog,
-};
+export { User, Post, Comment, Conversation, Message, Profile, KeyStore };
