@@ -33,6 +33,10 @@ export async function apiRequest(path: string, options: ApiOptions = {}) {
 		throw new Error(message);
 	}
 
+	if (typeof window !== "undefined" && path.startsWith("/auth/logout")) {
+		window.sessionStorage.removeItem("adminMode");
+	}
+
 	return data;
 }
 
