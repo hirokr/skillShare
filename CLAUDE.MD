@@ -645,7 +645,7 @@ Client                          Server                         Database
 - Extract JWT from `Authorization` header or cookie
 - Verify signature (custom JWT verify from scratch)
 - Check `tokenVersion` matches User document
-- Attach `req.user = { id, role, keyVersion }` 
+- Attach `req.user = { id, role, keyVersion }`
 
 ### `middleware/authorize.js`
 - `authorize(...roles)` — factory that returns middleware
@@ -707,18 +707,18 @@ Client                          Server                         Database
 
 Two roles: `user` and `admin`. Role stored in JWT payload and in `User.role`.
 
-| Action | user | admin |
-|--------|------|-------|
-| Create post | ✅ | ✅ |
-| Edit own post | ✅ | ✅ |
-| Delete own post | ✅ | ✅ |
-| Delete any post | ❌ | ✅ |
-| Edit own profile | ✅ | ✅ |
-| View any profile | ✅ | ✅ |
-| Send DMs | ✅ | ✅ |
-| Delete any user | ❌ | ✅ |
-| Rotate any user's keys | ❌ | ✅ |
-| View all KeyStore entries | ❌ | ✅ |
+| Action                    | user | admin |
+|---------------------------|------|-------|
+| Create post               |  ✅  |  ✅  |
+| Edit own post             |  ✅  |  ✅  |
+| Delete own post           |  ✅  |  ✅  |
+| Delete any post           |  ❌  |  ✅  |
+| Edit own profile          |  ✅  |  ✅  |
+| View any profile          |  ✅  |  ✅  |
+| Send DMs                  |  ✅  |  ✅  |
+| Delete any user           |  ❌  |  ✅  |
+| Rotate any user's keys    |  ❌  |  ✅  |
+| View all KeyStore entries |  ❌  |  ✅  |
 
 Implementation pattern in routes:
 ```js
