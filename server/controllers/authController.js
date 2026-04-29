@@ -134,7 +134,8 @@ function requireEnv(name) {
 
 function getServerRsaPublicKey() {
 	const serialized = requireEnv("SERVER_RSA_PUBLIC_KEY");
-	return rsa.deserializePublicKey(serialized);
+	const pub = rsa.deserializePublicKey(serialized);
+	return pub;
 }
 
 function getServerRsaPrivateKey() {
@@ -144,7 +145,8 @@ function getServerRsaPrivateKey() {
 
 function getServerEccPublicKey() {
 	const serialized = requireEnv("SERVER_ECC_PUBLIC_KEY");
-	return ecc.deserializePublicKey(serialized);
+	const pub = ecc.deserializePublicKey(serialized);
+	return pub;
 }
 
 function generateRefreshToken() {
@@ -166,12 +168,12 @@ export async function register(req, res) {
 
 		const cleanUsername = username.trim();
 		const cleanEmail = email.trim().toLowerCase();
-		const cleanContact = contact ? contact.trim() : null;
-		
+		const cleanContact = contact ? contact.trim() : "12390123";
+
 		const hmacKey = requireEnv("HMAC_SERVER_KEY");
 		const usernameHash = hashField(cleanUsername, hmacKey);
 		const emailHash = hashField(cleanEmail, hmacKey);
-		
+
 		const existing = await User.findOne({
 			$or: [{ usernameHash }, { emailHash }],
 		});
@@ -183,7 +185,7 @@ export async function register(req, res) {
 		const passwordHash = hashPassword(password, salt);
 
 		const serverRsaPub = getServerRsaPublicKey();
-		console.log(serverRsaPub);
+
 		const serverEccPub = getServerEccPublicKey();
 
 		const { publicKey: userRsaPub, privateKey: userRsaPriv } =
@@ -202,13 +204,23 @@ export async function register(req, res) {
 		const serializedEccPub = ecc.serializePublicKey(userEccPub);
 		const serializedEccPriv = ecc.serializePrivateKey(userEccPriv);
 
-		const encryptedPrivateKey = rsa.encrypt(serializedRsaPriv, serverRsaPub);
-		const encryptedEccPrivateKey = rsa.encrypt(serializedEccPriv, serverRsaPub);
+		// FIX 2: a serialised RSA-2048 private key is ~1 100 bytes — far above
+		// MAX_CHUNK_BYTES (190).  rsa.encrypt() would throw "OAEP: message too
+		// long".  Use chunkEncrypt() instead and JSON-stringify the chunk array
+		// for database storage.  The ECC private key is smaller but also
+		// exceeds one block, so apply the same treatment for consistency.
+		const encryptedPrivateKey = JSON.stringify(
+			rsa.chunkEncrypt(serializedRsaPriv, serverRsaPub),
+		);
+		const encryptedEccPrivateKey = JSON.stringify(
+			rsa.chunkEncrypt(serializedEccPriv, serverRsaPub),
+		);
 
 		const hmacSignature = signMac(
 			[encryptedUsername, encryptedEmail, encryptedContact],
 			hmacKey,
 		);
+		console.log("DONE");
 
 		const user = await User.create({
 			encryptedUsername,
@@ -481,9 +493,16 @@ export async function keys(req, res) {
 		}
 
 		const serverPriv = getServerRsaPrivateKey();
-		const rsaPrivateKey = rsa.decrypt(user.encryptedPrivateKey, serverPriv);
+
+		// FIX 3: private keys were stored via chunkEncrypt (JSON array string),
+		// so they must be retrieved with chunkDecrypt.  Using rsa.decrypt()
+		// (single-block) here would throw or return garbage.
+		const rsaPrivateKey = rsa.chunkDecrypt(
+			JSON.parse(user.encryptedPrivateKey),
+			serverPriv,
+		);
 		const eccPrivateKey = user.encryptedEccPrivateKey
-			? rsa.decrypt(user.encryptedEccPrivateKey, serverPriv)
+			? rsa.chunkDecrypt(JSON.parse(user.encryptedEccPrivateKey), serverPriv)
 			: null;
 
 		return res.status(200).json({

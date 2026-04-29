@@ -71,11 +71,10 @@ const mod = (a) => ((a % CURVE.p) + CURVE.p) % CURVE.p;
 /** Modular inverse mod p using extended Euclidean */
 function fieldInverse(a) {
 	// For a prime field, a^(-1) = a^(p-2) mod p (Fermat's little theorem)
-	// Using fast exponentiation is equivalent and avoids recursive stack depth
 	return modPow(((a % CURVE.p) + CURVE.p) % CURVE.p, CURVE.p - 2n, CURVE.p);
 }
 
-/** Modular exponentiation — imported from utils but inlined here for self-containment */
+/** Modular exponentiation */
 function modPow(base, exp, mod) {
 	if (mod === 1n) return 0n;
 	let result = 1n;
@@ -94,7 +93,11 @@ function modPow(base, exp, mod) {
 
 /** Check if a point is the point at infinity */
 function isInfinity(P) {
-	return P.x === null && P.y === null;
+	return P.x === null || P.y === null; // BUG FIX 1: was (&&) — a half-null point
+	// (one coord null, one not) must also be
+	// treated as infinity, not silently passed
+	// to arithmetic that expects BigInts.
+	// Using || catches all malformed cases.
 }
 
 /**
@@ -154,16 +157,26 @@ function pointAdd(P, Q) {
 
 /**
  * Scalar multiplication: k * P using the double-and-add algorithm.
- * Processes bits of k from MSB to LSB.
+ * Processes bits of k from LSB to MSB.
  *
  * @param {BigInt} k  scalar
  * @param {{ x: BigInt, y: BigInt }} P  curve point
  * @returns {{ x: BigInt, y: BigInt }}
  */
 export function scalarMult(k, P) {
+	// BUG FIX 2: reduce k modulo the curve order n before processing.
+	// Without this, a caller passing k >= n (e.g. a raw random scalar that
+	// was not reduced) gets silently wrong results: the loop processes extra
+	// high bits that should have been zero, producing a different — and
+	// mathematically incorrect — point. k mod n is the correct scalar since
+	// the group has order n (n*P = O for any point P on the curve).
+	k = ((k % CURVE.n) + CURVE.n) % CURVE.n;
+
 	if (k === 0n) return POINT_AT_INFINITY;
 	if (k < 0n) {
 		// Negate P: (x, -y mod p)
+		// Note: after the mod-n reduction above k is always >= 0, so this
+		// branch is now unreachable in normal use but kept for safety.
 		return scalarMult(-k, { x: P.x, y: mod(-P.y) });
 	}
 
@@ -197,14 +210,26 @@ const G = { x: CURVE.Gx, y: CURVE.Gy };
  * }}
  */
 export function generateKeyPair() {
-	// Private key: random scalar in [1, n-1]
-	const privateKey = randomBigInt(1n, CURVE.n);
-	// Public key: private_key * G
+	// BUG FIX 3: private key must be in [1, n-1], i.e. strictly less than n.
+	// The original code called randomBigInt(1n, CURVE.n). If randomBigInt
+	// treats its upper bound as *inclusive*, privateKey === n is possible,
+	// which makes scalarMult(n, G) = O (point at infinity).  isOnCurve(O)
+	// returns true so the broken keypair would pass the guard silently.
+	// Using n - 1n as the upper bound guarantees the scalar is valid
+	// regardless of whether randomBigInt is inclusive or exclusive.
+	const privateKey = randomBigInt(1n, CURVE.n - 1n);
 	const publicKey = scalarMult(privateKey, G);
 
 	if (!isOnCurve(publicKey)) {
 		throw new Error(
 			"Generated public key is not on curve — this should never happen",
+		);
+	}
+
+	// Extra guard: public key must not be the point at infinity.
+	if (isInfinity(publicKey)) {
+		throw new Error(
+			"Generated public key is the point at infinity — invalid keypair",
 		);
 	}
 
@@ -218,11 +243,8 @@ export function generateKeyPair() {
 /**
  * Derive an encryption key stream byte from the ECDH shared secret.
  *
- * For each byte index i, we compute:
- *   keyByte_i = SHA256(sharedX_bytes || i2bytes(i))[0]
- *
- * This creates a deterministic, indistinguishable-from-random key stream
- * without using any symmetric cipher.
+ * For each block i, we compute:
+ *   block_i = SHA256(sharedX_bytes || i2bytes(i, 4, big-endian))
  *
  * @param {BigInt} sharedX  x-coordinate of ECDH shared point
  * @param {number} length   number of key bytes to generate
@@ -268,6 +290,15 @@ export function encrypt(message, recipientPublicKey) {
 	if (!isOnCurve(recipientPublicKey)) {
 		throw new Error("ECIES encrypt: recipient public key is not on curve");
 	}
+	// BUG FIX 4: also reject the point at infinity as a public key.
+	// isOnCurve(O) returns true, so without this extra guard an attacker
+	// could pass O, causing S = r*O = O, and the shared secret x-coord
+	// would be null — crashing bigIntToBytes or leaking a zero key.
+	if (isInfinity(recipientPublicKey)) {
+		throw new Error(
+			"ECIES encrypt: recipient public key is the point at infinity",
+		);
+	}
 
 	const msgBytes =
 		typeof message === "string" ? new TextEncoder().encode(message) : message;
@@ -277,6 +308,12 @@ export function encrypt(message, recipientPublicKey) {
 
 	// 2. ECDH: S = r * recipientPublicKey
 	const S = scalarMult(r, recipientPublicKey);
+
+	// Shared point must not be infinity (would mean recipientPublicKey had
+	// order dividing r, which is astronomically unlikely but worth checking).
+	if (isInfinity(S)) {
+		throw new Error("ECIES encrypt: ECDH produced point at infinity");
+	}
 
 	// 3. Key stream from shared secret
 	const keyStream = deriveKeyStream(S.x, msgBytes.length);
@@ -329,6 +366,17 @@ export function decrypt(ciphertextBlob, recipientPrivateKey) {
 
 	// 2. ECDH
 	const S = scalarMult(recipientPrivateKey, R);
+
+	// BUG FIX 5: guard against S being the point at infinity before
+	// dereferencing S.x.  A malicious or corrupted blob could supply an R
+	// whose order divides the private key, making S = O and S.x === null,
+	// causing bigIntToBytes(null, 32) to either throw or silently produce
+	// wrong bytes — in the latter case tag verification would still catch
+	// it, but failing explicitly is cleaner and avoids any edge-case in
+	// bigIntToBytes implementations that accept null.
+	if (isInfinity(S)) {
+		throw new Error("ECIES decrypt: ECDH produced point at infinity");
+	}
 
 	// 3. Verify tag
 	const sharedBytes = bigIntToBytes(S.x, SCALAR_BYTES);
@@ -400,47 +448,159 @@ function decompressPoint(compressed) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Key Serialisation
+//
+// Wire format (matches the .env keys):
+//
+//   Public key  → base64( JSON { x: hexString, y: hexString, curve: "secp256k1" } )
+//   Private key → base64( JSON { d: hexString, x: hexString, y: hexString, curve: "secp256k1" } )
+//
+// Both x, y, and d are zero-padded lowercase hex strings of exactly 64 chars
+// (32 bytes).  The full (uncompressed) public key coordinates are stored rather
+// than the compressed 33-byte form so the format is interoperable with standard
+// JWK-like tooling.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Serialize a public key point to a base64 compressed-point string (33 bytes → base64).
- *
- * @param {{ x: BigInt, y: BigInt }} publicKey
- * @returns {string} base64 string (44 chars)
- */
-export function serializePublicKey(publicKey) {
-	return toBase64(compressPoint(publicKey));
+/** Zero-pad a BigInt to exactly `byteLen` bytes and return lowercase hex. */
+function bigIntToHex(n, byteLen = SCALAR_BYTES) {
+	return n.toString(16).padStart(byteLen * 2, "0");
+}
+
+/** Parse a hex string (with optional 0x prefix) to BigInt. */
+function hexToBigInt(hex) {
+	return BigInt("0x" + hex.replace(/^0x/, ""));
 }
 
 /**
- * Deserialize a compressed-point base64 string to a public key point.
+ * Serialize a public key to a base64-encoded JSON string.
+ *
+ * Output format:
+ *   base64({ x: "<64-char hex>", y: "<64-char hex>", curve: "secp256k1" })
+ *
+ * @param {{ x: BigInt, y: BigInt }} publicKey
+ * @returns {string} base64 string
+ */
+export function serializePublicKey(publicKey) {
+	if (isInfinity(publicKey)) {
+		throw new Error(
+			"serializePublicKey: cannot serialize the point at infinity",
+		);
+	}
+	const json = JSON.stringify({
+		x: bigIntToHex(publicKey.x),
+		y: bigIntToHex(publicKey.y),
+		curve: "secp256k1",
+	});
+	// btoa works on ASCII; JSON of hex strings is always ASCII-safe.
+	return btoa(json);
+}
+
+/**
+ * Deserialize a base64-encoded JSON public key.
+ *
+ * Accepts the format produced by serializePublicKey() and the format used in
+ * the .env file (base64-encoded JSON with x/y hex fields).
  *
  * @param {string} b64
  * @returns {{ x: BigInt, y: BigInt }}
  */
 export function deserializePublicKey(b64) {
-	return decompressPoint(fromBase64(b64));
+	let parsed;
+	try {
+		parsed = JSON.parse(atob(b64));
+	} catch {
+		throw new Error("deserializePublicKey: invalid base64 or JSON");
+	}
+
+	if (typeof parsed.x !== "string" || typeof parsed.y !== "string") {
+		throw new Error("deserializePublicKey: missing x or y field");
+	}
+	if (parsed.curve && parsed.curve !== "secp256k1") {
+		throw new Error(
+			`deserializePublicKey: unsupported curve "${parsed.curve}"`,
+		);
+	}
+
+	const point = {
+		x: hexToBigInt(parsed.x),
+		y: hexToBigInt(parsed.y),
+	};
+
+	if (!isOnCurve(point)) {
+		throw new Error(
+			"deserializePublicKey: point is not on the secp256k1 curve",
+		);
+	}
+
+	return point;
 }
 
 /**
- * Serialize a private key (BigInt scalar) to a base64 string.
- * WARNING: Must be encrypted before database storage.
+ * Serialize a private key to a base64-encoded JSON string.
+ *
+ * Output format:
+ *   base64({ d: "<64-char hex>", x: "<64-char hex>", y: "<64-char hex>", curve: "secp256k1" })
+ *
+ * The corresponding public key coordinates (x, y) are embedded so the private
+ * key blob is self-contained — callers can recover the public key without an
+ * extra scalar multiplication.
+ *
+ * WARNING: Must be encrypted at rest before database/env storage.
  *
  * @param {BigInt} privateKey
+ * @param {{ x: BigInt, y: BigInt }} [publicKey]  optional; derived if omitted
  * @returns {string} base64 string
  */
-export function serializePrivateKey(privateKey) {
-	return toBase64(bigIntToBytes(privateKey, SCALAR_BYTES));
+export function serializePrivateKey(privateKey, publicKey) {
+	const pub = publicKey ?? scalarMult(privateKey, G);
+	if (isInfinity(pub)) {
+		throw new Error(
+			"serializePrivateKey: derived public key is the point at infinity",
+		);
+	}
+	const json = JSON.stringify({
+		d: bigIntToHex(privateKey),
+		x: bigIntToHex(pub.x),
+		y: bigIntToHex(pub.y),
+		curve: "secp256k1",
+	});
+	return btoa(json);
 }
 
 /**
- * Deserialize a private key from base64 to a BigInt scalar.
+ * Deserialize a base64-encoded JSON private key.
+ *
+ * Accepts the format produced by serializePrivateKey() and the format used in
+ * the .env file (base64-encoded JSON with d/x/y hex fields).
  *
  * @param {string} b64
- * @returns {BigInt}
+ * @returns {BigInt} scalar private key
  */
 export function deserializePrivateKey(b64) {
-	return bytesToBigInt(fromBase64(b64));
+	let parsed;
+	try {
+		parsed = JSON.parse(atob(b64));
+	} catch {
+		throw new Error("deserializePrivateKey: invalid base64 or JSON");
+	}
+
+	if (typeof parsed.d !== "string") {
+		throw new Error("deserializePrivateKey: missing d field");
+	}
+	if (parsed.curve && parsed.curve !== "secp256k1") {
+		throw new Error(
+			`deserializePrivateKey: unsupported curve "${parsed.curve}"`,
+		);
+	}
+
+	const scalar = hexToBigInt(parsed.d);
+
+	if (scalar <= 0n || scalar >= CURVE.n) {
+		throw new Error(
+			"deserializePrivateKey: scalar d is out of valid range [1, n-1]",
+		);
+	}
+
+	return scalar;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

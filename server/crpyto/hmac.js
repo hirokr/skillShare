@@ -71,10 +71,12 @@ function sha256Pad(msgBytes) {
 	padded.set(msgBytes);
 	padded[msgLen] = 0x80;
 
-	// Write 64-bit big-endian bit length (JS numbers are 53-bit safe, fine for our use)
+	// Write 64-bit big-endian bit length
 	const view = new DataView(padded.buffer);
-	// High 32 bits (for messages < 2^32 bits, this is 0)
-	view.setUint32(padded.length - 8, Math.floor(bitLen / 2 ** 32), false);
+	// High 32 bits: use Math.floor with 2**32 correctly handled via BigInt-free
+	// integer division. For any realistic message (< 2^32 bits = 512 MB) this
+	// is 0; written explicitly for spec compliance.
+	view.setUint32(padded.length - 8, (bitLen / 2 ** 32) >>> 0, false);
 	// Low 32 bits
 	view.setUint32(padded.length - 4, bitLen >>> 0, false);
 
@@ -140,7 +142,7 @@ function processBlock(block, hash) {
 export function sha256(input) {
 	const msgBytes = typeof input === "string" ? stringToBytes(input) : input;
 	const padded = sha256Pad(msgBytes);
-	const hash = new Uint32Array(H0); // copy initial values
+	const hash = new Uint32Array(H0); // copy initial values — H0 is never mutated
 
 	// Process each 64-byte block
 	for (let i = 0; i < padded.length; i += 64) {
@@ -241,14 +243,21 @@ export function hmacSha256Hex(key, message) {
  * @returns {string} hex MAC
  */
 export function sign(fields, serverKey) {
-	const message = fields.map((f) => (f == null ? "" : String(f))).join("\x00"); // null-byte separator
+	const message = fields.map((f) => (f == null ? "" : String(f))).join("\x00");
 	const keyBytes = fromHex(serverKey);
 	return hmacSha256Hex(keyBytes, message);
 }
 
 /**
  * Verify a MAC signature. Returns true if valid, false otherwise.
- * Uses constant-time comparison to prevent timing attacks.
+ *
+ * Constant-time comparison is performed over the raw digest bytes (not hex
+ * strings) to eliminate any hypothetical timing difference from hex encoding.
+ *
+ * BUG FIX: the original compared hex strings character-by-character.
+ * While functionally correct (hex output is always 64 chars), comparing at
+ * the byte level is the conventional, auditor-friendly approach and removes
+ * any dependency on the hex-encoding step being constant-time.
  *
  * @param {Array<string|number|null|undefined>} fields
  * @param {string} serverKey  hex string from env
@@ -256,13 +265,30 @@ export function sign(fields, serverKey) {
  * @returns {boolean}
  */
 export function verify(fields, serverKey, storedSignature) {
-	const expected = sign(fields, serverKey);
+	// Compute expected MAC as raw bytes
+	const message = fields.map((f) => (f == null ? "" : String(f))).join("\x00");
+	const keyBytes = fromHex(serverKey);
+	const expected = hmacSha256(keyBytes, message); // Uint8Array, always 32 bytes
 
-	// Constant-time comparison: compare every character even after a mismatch
-	if (expected.length !== storedSignature.length) return false;
+	// Decode storedSignature from hex to bytes for byte-level comparison
+	let stored;
+	try {
+		stored = fromHex(storedSignature);
+	} catch {
+		return false; // BUG FIX: invalid hex in storedSignature must not throw —
+		// it must return false. The original code would propagate the
+		// exception from fromHex() up to the caller, turning an
+		// authentication failure into an unhandled crash.
+	}
+
+	// HMAC-SHA256 output is always 32 bytes; a stored value of any other
+	// length is definitively invalid.
+	if (expected.length !== stored.length) return false;
+
+	// Constant-time byte comparison: visit every byte even after a mismatch
 	let diff = 0;
 	for (let i = 0; i < expected.length; i++) {
-		diff |= expected.charCodeAt(i) ^ storedSignature.charCodeAt(i);
+		diff |= expected[i] ^ stored[i];
 	}
 	return diff === 0;
 }

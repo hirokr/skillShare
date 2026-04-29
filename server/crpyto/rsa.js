@@ -191,6 +191,7 @@ function mgf1(seed, maskLen) {
 		// C = I2OSP(counter, 4)
 		const C = new Uint8Array(4);
 		new DataView(C.buffer).setUint32(0, counter, false);
+		// FIX 1: always pass Uint8Array to sha256 — never a raw string
 		chunks.push(sha256(concatBytes(seed, C)));
 	}
 
@@ -217,8 +218,9 @@ function oaepEncode(message, label = "") {
 		);
 	}
 
-	// lHash = SHA256(label)
-	const lHash = sha256(label);
+	// FIX 1: encode label to bytes before hashing so sha256 always receives
+	// a Uint8Array, consistent with the mgf1 call above.
+	const lHash = sha256(new TextEncoder().encode(label));
 
 	// DB = lHash || PS || 0x01 || M
 	const psLen = emLen - mLen - 2 * HASH_LEN - 2;
@@ -284,8 +286,8 @@ function oaepDecode(EM, label = "") {
 	const DB = new Uint8Array(maskedDB.length);
 	for (let i = 0; i < maskedDB.length; i++) DB[i] = maskedDB[i] ^ dbMask[i];
 
-	// Verify lHash
-	const lHash = sha256(label);
+	// FIX 1: encode label to bytes before hashing (matches oaepEncode)
+	const lHash = sha256(new TextEncoder().encode(label));
 	for (let i = 0; i < HASH_LEN; i++) {
 		if (DB[i] !== lHash[i]) throw new Error("OAEP decode: label hash mismatch");
 	}
@@ -405,34 +407,107 @@ export function serializePublicKey(publicKey) {
 /**
  * Deserialize a public key from a base64 JSON string.
  *
- * @param {string} b64
+ * Accepts three formats:
+ *   1. Raw JSON string with hex-encoded n/e  (our serializePublicKey format)
+ *   2. Base64 of the above JSON              (our serializePublicKey output)
+ *   3. JWK JSON with base64url-encoded n/e   (standard JWK)
+ *
+ * @param {string} input
  * @returns {{ n: BigInt, e: BigInt }}
  */
-export function deserializePublicKey(b64) {
-	if (typeof b64 !== "string" || b64.trim().length === 0) {
+export function deserializePublicKey(input) {
+	if (typeof input !== "string" || input.trim().length === 0) {
 		throw new Error("Missing RSA public key");
 	}
-	const trimmed = b64.trim();
-	let jsonText;
+
+	const trimmed = input.trim();
+
+	// CASE 1: already raw JSON
+	if (trimmed.startsWith("{")) {
+		return parsePublicKeyJSON(JSON.parse(trimmed));
+	}
+
+	// CASE 2: PEM — not supported
+	if (trimmed.includes("BEGIN PUBLIC KEY")) {
+		throw new Error(
+			"PEM format detected. Convert to JWK or use serializePublicKey format.",
+		);
+	}
+
+	let decodedText;
 	try {
-		jsonText = trimmed.startsWith("{")
-			? trimmed
-			: new TextDecoder().decode(fromBase64(trimmed));
-	} catch (error) {
-		throw new Error("Invalid RSA public key encoding");
+		decodedText = Buffer.from(trimmed, "base64url").toString("utf8");
+		// Fall back to standard base64 if base64url produced non-printable output
+		if (!decodedText.startsWith("{")) {
+			decodedText = Buffer.from(trimmed, "base64").toString("utf8");
+		}
+	} catch {
+		throw new Error("Invalid Base64 encoding");
 	}
-	let obj;
-	try {
-		obj = JSON.parse(jsonText);
-	} catch (error) {
-		throw new Error("Invalid RSA public key JSON");
+
+	
+	if (decodedText.startsWith("{")) {
+		return parsePublicKeyJSON(JSON.parse(decodedText));
 	}
-	if (!obj?.n || !obj?.e) {
-		throw new Error("Invalid RSA public key format");
+
+	throw new Error(
+		"Unsupported RSA key format (likely DER/binary). Expected JWK JSON or serializePublicKey output.",
+	);
+}
+
+/**
+ * Parse a public-key JSON object whose n/e fields are either:
+ *   - lowercase hex strings  (our custom serialisation format), or
+ *   - base64url strings      (standard JWK format).
+ *
+ * FIX 4: renamed internal helper from `toHex` → `b64urlToHex` so it no
+ * longer shadows the `toHex` import from utils.js.
+ *
+ * FIX 5: detect the encoding format from the field value itself, so that
+ * keys produced by serializePublicKey round-trip correctly through
+ * deserializePublicKey.
+ *
+ * @param {object} obj
+ * @returns {{ n: BigInt, e: BigInt }}
+ */
+function parsePublicKeyJSON(obj) {
+	if (!obj.n || !obj.e) {
+		throw new Error("Invalid public key JSON: missing n or e fields");
 	}
+
+	/**
+	 * Convert a base64url string to a lowercase hex string.
+	 * FIX 4: renamed from toHex → b64urlToHex to avoid shadowing the import.
+	 */
+	function b64urlToHex(val) {
+		// Normalise base64url → standard base64
+		let b64 = val.replace(/-/g, "+").replace(/_/g, "/");
+		while (b64.length % 4 !== 0) b64 += "=";
+		const bytes = fromBase64(b64); // FIX 2: use imported util, not Buffer
+		return Array.from(bytes)
+			.map((b) => b.toString(16).padStart(2, "0"))
+			.join("");
+	}
+
+	/**
+	 * FIX 5: return the BigInt for a key field regardless of whether the
+	 * stored value is a plain hex string (our format) or base64url (JWK).
+	 *
+	 * Detection rule: if the value contains only hex digits [0-9a-fA-F] it is
+	 * already a hex string; otherwise treat it as base64url.
+	 */
+	function fieldToBigInt(val) {
+		if (/^[0-9a-fA-F]+$/.test(val)) {
+			// Our custom format — value is already a hex string
+			return BigInt("0x" + val);
+		}
+		// JWK format — value is base64url-encoded big-endian bytes
+		return BigInt("0x" + b64urlToHex(val));
+	}
+
 	return {
-		n: BigInt("0x" + obj.n),
-		e: BigInt("0x" + obj.e),
+		n: fieldToBigInt(obj.n),
+		e: fieldToBigInt(obj.e),
 	};
 }
 
