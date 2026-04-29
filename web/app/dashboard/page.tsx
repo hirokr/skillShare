@@ -186,7 +186,7 @@ export default function DashboardPage() {
 
 	if (isLoading) {
 		return (
-			<div className='p-6'>
+			<div className='mx-auto w-full max-w-6xl px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 				<Card>
 					<CardHeader>
 						<CardTitle>Loading dashboard</CardTitle>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
 
 	if (!user || !profile) {
 		return (
-			<div className='p-6'>
+			<div className='mx-auto w-full max-w-6xl px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 				<Card>
 					<CardHeader>
 						<CardTitle>Dashboard unavailable</CardTitle>
@@ -214,7 +214,7 @@ export default function DashboardPage() {
 	}
 
 	return (
-		<div className='p-6 space-y-6'>
+		<div className='mx-auto w-full max-w-6xl space-y-6 px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 			<Card>
 				<CardHeader>
 					<CardTitle>

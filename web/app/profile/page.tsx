@@ -48,7 +48,7 @@ export default function ProfileRedirectPage() {
 	}, [router]);
 
 	return (
-		<div className='p-6'>
+		<div className='mx-auto w-full max-w-6xl px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 			<Card>
 				<CardHeader>
 					<CardTitle>Opening your profile</CardTitle>

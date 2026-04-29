@@ -49,7 +49,7 @@ export default function NewPostPage() {
 	}
 
 	return (
-		<div className='p-6'>
+		<div className='mx-auto w-full max-w-6xl px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 			<Card>
 				<CardHeader>
 					<CardTitle>Create a post</CardTitle>

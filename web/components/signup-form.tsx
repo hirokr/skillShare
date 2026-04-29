@@ -162,12 +162,15 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 									Sign up with Google
 								</Button>
 								{error ? (
-									<FieldDescription className='px-6 text-center text-red-600'>
+									<FieldDescription className='px-6 text-center text-destructive'>
 										{error}
 									</FieldDescription>
 								) : null}
 								<FieldDescription className='px-6 text-center'>
-									Already have an account? <a href='#'>Sign in</a>
+									Already have an account?{" "}
+									<a href='#' className='text-primary hover:underline'>
+										Sign in
+									</a>
 								</FieldDescription>
 							</Field>
 						</FieldGroup>

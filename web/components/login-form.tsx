@@ -121,7 +121,7 @@ export function LoginForm({
 									<FieldLabel htmlFor='password'>Password</FieldLabel>
 									<a
 										href='#'
-										className='ml-auto inline-block text-sm underline-offset-4 hover:underline'
+										className='ml-auto inline-block text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
 									>
 										Forgot your password?
 									</a>
@@ -136,12 +136,15 @@ export function LoginForm({
 									Login with Google
 								</Button>
 								{error ? (
-									<FieldDescription className='text-center text-red-600'>
+									<FieldDescription className='text-center text-destructive'>
 										{error}
 									</FieldDescription>
 								) : null}
 								<FieldDescription className='text-center'>
-									Don&apos;t have an account? <a href='#'>Sign up</a>
+									Don&apos;t have an account?{" "}
+									<a href='#' className='text-primary hover:underline'>
+										Sign up
+									</a>
 								</FieldDescription>
 							</Field>
 						</FieldGroup>

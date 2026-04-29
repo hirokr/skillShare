@@ -257,7 +257,7 @@ const FeedPage = () => {
 	}
 
 	return (
-		<div className='space-y-4'>
+		<div className='mx-auto w-full max-w-6xl space-y-4 px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 			<div className='flex items-center justify-between'>
 				<div>
 					<h2 className='text-lg font-semibold'>Feed</h2>

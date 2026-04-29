@@ -140,7 +140,7 @@ export default function ProfilePage() {
 
 	if (isLoading) {
 		return (
-			<div className='p-6'>
+			<div className='mx-auto w-full max-w-6xl px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 				<Card>
 					<CardHeader>
 						<CardTitle>Loading profile</CardTitle>
@@ -156,7 +156,7 @@ export default function ProfilePage() {
 
 	if (!profile) {
 		return (
-			<div className='p-6'>
+			<div className='mx-auto w-full max-w-6xl px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 				<Card>
 					<CardHeader>
 						<CardTitle>Profile unavailable</CardTitle>
@@ -176,7 +176,7 @@ export default function ProfilePage() {
 		.toUpperCase();
 
 	return (
-		<div className='space-y-6 p-6'>
+		<div className='mx-auto w-full max-w-6xl space-y-6 px-8 pb-24 pt-14 sm:px-10 lg:px-16'>
 			<div className='flex items-center justify-between'>
 				<div>
 					<h2 className='text-lg font-semibold'>Public profile</h2>
