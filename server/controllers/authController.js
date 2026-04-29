@@ -181,6 +181,10 @@ export async function register(req, res) {
 			return res.status(409).json({ message: "User already exists" });
 		}
 
+		// First registered user becomes admin.
+		const existingUserCount = await User.countDocuments();
+		const role = existingUserCount === 0 ? "admin" : "user";
+
 		const salt = generateSalt();
 		const passwordHash = hashPassword(password, salt);
 
@@ -235,6 +239,7 @@ export async function register(req, res) {
 			eccPublicKey: serializedEccPub,
 			encryptedEccPrivateKey,
 			hmacSignature,
+			role,
 		});
 
 		const profileMac = signMac(
