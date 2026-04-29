@@ -32,20 +32,28 @@ function sortedParticipants(a, b) {
 		.sort((left, right) => left.localeCompare(right));
 }
 
+function buildParticipantsKey(a, b) {
+	const [left, right] = sortedParticipants(a, b);
+	return `${left}:${right}`;
+}
+
 export async function getOrCreateConversation(userId, recipientId) {
 	const [left, right] = sortedParticipants(userId, recipientId);
-	let conversation = await Conversation.findOne({
-		participants: [left, right],
-	});
-	if (!conversation) {
-		conversation = await Conversation.create({
-			participants: [left, right],
-			unreadCount: [
-				{ userId: left, count: 0 },
-				{ userId: right, count: 0 },
-			],
-		});
-	}
+	const participantsKey = buildParticipantsKey(left, right);
+	const conversation = await Conversation.findOneAndUpdate(
+		{ participantsKey },
+		{
+			$setOnInsert: {
+				participants: [left, right],
+				participantsKey,
+				unreadCount: [
+					{ userId: left, count: 0 },
+					{ userId: right, count: 0 },
+				],
+			},
+		},
+		{ returnDocument: "after", upsert: true },
+	);
 	return conversation;
 }
 
