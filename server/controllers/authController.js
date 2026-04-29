@@ -167,11 +167,11 @@ export async function register(req, res) {
 		const cleanUsername = username.trim();
 		const cleanEmail = email.trim().toLowerCase();
 		const cleanContact = contact ? contact.trim() : null;
-
+		
 		const hmacKey = requireEnv("HMAC_SERVER_KEY");
 		const usernameHash = hashField(cleanUsername, hmacKey);
 		const emailHash = hashField(cleanEmail, hmacKey);
-
+		
 		const existing = await User.findOne({
 			$or: [{ usernameHash }, { emailHash }],
 		});
@@ -183,6 +183,7 @@ export async function register(req, res) {
 		const passwordHash = hashPassword(password, salt);
 
 		const serverRsaPub = getServerRsaPublicKey();
+		console.log(serverRsaPub);
 		const serverEccPub = getServerEccPublicKey();
 
 		const { publicKey: userRsaPub, privateKey: userRsaPriv } =

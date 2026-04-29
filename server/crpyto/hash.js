@@ -132,7 +132,12 @@ export function verifyPassword(inputPassword, salt, storedHash) {
  * @returns {string}            64-character hex string
  */
 export function hashField(value, serverKey) {
-	return hmacSha256Hex(fromHex(serverKey), value.toLowerCase().trim());
+	const normalizedValue = value.toLowerCase().trim();
+	const hexKeyPattern = /^[0-9a-fA-F]+$/;
+	const useHexKey =
+		serverKey && serverKey.length % 2 === 0 && hexKeyPattern.test(serverKey);
+	const keyBytes = useHexKey ? fromHex(serverKey) : stringToBytes(serverKey);
+	return hmacSha256Hex(keyBytes, normalizedValue);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -409,7 +409,27 @@ export function serializePublicKey(publicKey) {
  * @returns {{ n: BigInt, e: BigInt }}
  */
 export function deserializePublicKey(b64) {
-	const obj = JSON.parse(new TextDecoder().decode(fromBase64(b64)));
+	if (typeof b64 !== "string" || b64.trim().length === 0) {
+		throw new Error("Missing RSA public key");
+	}
+	const trimmed = b64.trim();
+	let jsonText;
+	try {
+		jsonText = trimmed.startsWith("{")
+			? trimmed
+			: new TextDecoder().decode(fromBase64(trimmed));
+	} catch (error) {
+		throw new Error("Invalid RSA public key encoding");
+	}
+	let obj;
+	try {
+		obj = JSON.parse(jsonText);
+	} catch (error) {
+		throw new Error("Invalid RSA public key JSON");
+	}
+	if (!obj?.n || !obj?.e) {
+		throw new Error("Invalid RSA public key format");
+	}
 	return {
 		n: BigInt("0x" + obj.n),
 		e: BigInt("0x" + obj.e),
@@ -440,7 +460,14 @@ export function serializePrivateKey(privateKey) {
  * @returns {{ n: BigInt, d: BigInt, p: BigInt, q: BigInt }}
  */
 export function deserializePrivateKey(b64) {
-	const obj = JSON.parse(new TextDecoder().decode(fromBase64(b64)));
+	const trimmed = b64.trim();
+	const jsonText = trimmed.startsWith("{")
+		? trimmed
+		: new TextDecoder().decode(fromBase64(trimmed));
+	const obj = JSON.parse(jsonText);
+	if (!obj?.n || !obj?.d || !obj?.p || !obj?.q) {
+		throw new Error("Invalid RSA private key format");
+	}
 	return {
 		n: BigInt("0x" + obj.n),
 		d: BigInt("0x" + obj.d),

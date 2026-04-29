@@ -155,8 +155,6 @@ const UserSchema = new mongoose.Schema(
 );
 
 // ── Indexes ────────────────────────────────────────────────────────────────────
-UserSchema.index({ emailHash: 1 });
-UserSchema.index({ usernameHash: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ followers: 1 });
 
