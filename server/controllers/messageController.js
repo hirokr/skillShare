@@ -141,6 +141,7 @@ export async function startConversation(req, res) {
 		const conversation = await getOrCreateConversation(userId, recipientId);
 		return res.status(200).json({ conversationId: conversation._id });
 	} catch (error) {
+		console.log(error);
 		return res.status(500).json({ message: "Failed to start conversation" });
 	}
 }

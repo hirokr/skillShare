@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, apiPatch, apiPost, apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	Card,
 	CardHeader,
@@ -13,6 +14,13 @@ import {
 	CardFooter,
 } from "@/components/ui/card";
 
+type AuthorSummary = {
+	id: string;
+	username: string;
+	displayName: string;
+	avatarUrl: string | null;
+};
+
 type FeedPost = {
 	id: string;
 	title: string;
@@ -20,17 +28,26 @@ type FeedPost = {
 	category: string;
 	tags: string[];
 	createdAt: string;
-	author: string | null;
+	author: AuthorSummary | null;
 };
 
 type CommentItem = {
 	id: string;
 	postId: string;
-	author: string;
+	author: AuthorSummary | null;
 	content: string;
 	createdAt: string;
 	parentComment: string | null;
 };
+
+function getInitials(value: string) {
+	return value
+		.split(" ")
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase();
+}
 
 const FeedPage = () => {
 	const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -296,100 +313,192 @@ const FeedPage = () => {
 				</div>
 			) : null}
 
-			{posts.map((post) => (
-				<Card key={post.id} className='w-full'>
-					<CardHeader>
-						<CardTitle>{post.title}</CardTitle>
-						<CardDescription>
-							{new Date(post.createdAt).toLocaleString()} • {post.category}
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className='text-sm text-foreground/90'>{post.content}</p>
-						{post.author &&
-						(post.author === currentUserId ||
-							(currentUserRole === "admin" && adminMode)) ? (
-							<div className='mt-3 flex gap-2'>
-								<Button
-									variant='outline'
-									type='button'
-									onClick={() => startEdit(post)}
-								>
-									Edit
-								</Button>
-								<Button
-									variant='destructive'
-									type='button'
-									onClick={() => deletePost(post.id)}
-								>
-									Delete
-								</Button>
-							</div>
-						) : null}
-					</CardContent>
-					<CardFooter>
-						<div className='w-full space-y-3'>
-							<div className='flex flex-wrap gap-2 text-xs text-muted-foreground'>
-								{post.tags.map((tag) => (
-									<span key={tag} className='rounded bg-muted px-2 py-0.5'>
-										#{tag}
-									</span>
-								))}
-							</div>
+			{posts.map((post) => {
+				const authorName =
+					post.author?.displayName || post.author?.username || "Anonymous";
+				const authorInitials = getInitials(authorName || "Anonymous");
+				const authorHref = post.author?.username
+					? `/profile/${encodeURIComponent(post.author.username)}`
+					: null;
 
-							<div className='space-y-2'>
-								<Button
-									variant='outline'
-									type='button'
-									onClick={() => toggleComments(post.id)}
-									disabled={commentLoading[post.id]}
-								>
-									{commentLoading[post.id]
-										? "Loading..."
-										: commentsOpen[post.id]
-											? "Hide comments"
-											: commentsLoaded[post.id]
-												? "Show comments"
-												: "Load comments"}
-									<span className='ml-2 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground'>
-										{commentsLoaded[post.id]
-											? (commentsByPost[post.id] || []).length
-											: "-"}
-									</span>
-								</Button>
-
-								{commentsOpen[post.id]
-									? (commentsByPost[post.id] || []).map((comment) => (
-											<div
-												key={comment.id}
-												className='text-sm text-muted-foreground'
-											>
-												{comment.content}
-											</div>
-										))
-									: null}
-
-								<div className='flex gap-2'>
-									<input
-										className='h-9 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm'
-										placeholder='Write a comment...'
-										value={commentInputs[post.id] || ""}
-										onChange={(event) =>
-											setCommentInputs((prev) => ({
-												...prev,
-												[post.id]: event.target.value,
-											}))
-										}
-									/>
-									<Button type='button' onClick={() => submitComment(post.id)}>
-										Comment
-									</Button>
+				return (
+					<Card key={post.id} className='w-full'>
+						<CardHeader>
+							<div className='flex items-start justify-between gap-3'>
+								<div className='flex items-center gap-3'>
+									{authorHref ? (
+										<Link
+											href={authorHref}
+											aria-label={`View ${authorName} profile`}
+										>
+											<Avatar>
+												<AvatarImage
+													src={post.author?.avatarUrl ?? undefined}
+												/>
+												<AvatarFallback>{authorInitials}</AvatarFallback>
+											</Avatar>
+										</Link>
+									) : (
+										<Avatar>
+											<AvatarFallback>{authorInitials}</AvatarFallback>
+										</Avatar>
+									)}
+									<div>
+										<CardTitle>{post.title}</CardTitle>
+										<CardDescription>
+											{new Date(post.createdAt).toLocaleString()} •
+											{post.category} •
+											{authorHref ? (
+												<Link
+													href={authorHref}
+													className='text-primary underline-offset-4 hover:underline'
+												>
+													@{post.author?.username}
+												</Link>
+											) : (
+												"Anonymous"
+											)}
+										</CardDescription>
+									</div>
 								</div>
 							</div>
-						</div>
-					</CardFooter>
-				</Card>
-			))}
+						</CardHeader>
+						<CardContent>
+							<p className='text-sm text-foreground/90'>{post.content}</p>
+							{post.author &&
+							(post.author.id === currentUserId ||
+								(currentUserRole === "admin" && adminMode)) ? (
+								<div className='mt-3 flex gap-2'>
+									<Button
+										variant='outline'
+										type='button'
+										onClick={() => startEdit(post)}
+									>
+										Edit
+									</Button>
+									<Button
+										variant='destructive'
+										type='button'
+										onClick={() => deletePost(post.id)}
+									>
+										Delete
+									</Button>
+								</div>
+							) : null}
+						</CardContent>
+						<CardFooter>
+							<div className='w-full space-y-3'>
+								<div className='flex flex-wrap gap-2 text-xs text-muted-foreground'>
+									{post.tags.map((tag) => (
+										<span key={tag} className='rounded bg-muted px-2 py-0.5'>
+											#{tag}
+										</span>
+									))}
+								</div>
+
+								<div className='space-y-2'>
+									<Button
+										variant='outline'
+										type='button'
+										onClick={() => toggleComments(post.id)}
+										disabled={commentLoading[post.id]}
+									>
+										{commentLoading[post.id]
+											? "Loading..."
+											: commentsOpen[post.id]
+												? "Hide comments"
+												: commentsLoaded[post.id]
+													? "Show comments"
+													: "Load comments"}
+										<span className='ml-2 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground'>
+											{commentsLoaded[post.id]
+												? (commentsByPost[post.id] || []).length
+												: "-"}
+										</span>
+									</Button>
+
+									{commentsOpen[post.id]
+										? (commentsByPost[post.id] || []).map((comment) => {
+												const commentName =
+													comment.author?.displayName ||
+													comment.author?.username ||
+													"User";
+												const commentInitials = getInitials(commentName);
+												const commentHref = comment.author?.username
+													? `/profile/${encodeURIComponent(comment.author.username)}`
+													: null;
+
+												return (
+													<div
+														key={comment.id}
+														className='flex items-start gap-2 text-sm text-muted-foreground'
+													>
+														{commentHref ? (
+															<Link
+																href={commentHref}
+																aria-label={`View ${commentName} profile`}
+															>
+																<Avatar size='sm'>
+																	<AvatarImage
+																		src={comment.author?.avatarUrl ?? undefined}
+																	/>
+																	<AvatarFallback>
+																		{commentInitials}
+																	</AvatarFallback>
+																</Avatar>
+															</Link>
+														) : (
+															<Avatar size='sm'>
+																<AvatarFallback>
+																	{commentInitials}
+																</AvatarFallback>
+															</Avatar>
+														)}
+														<div>
+															<div className='text-xs font-medium text-foreground'>
+																{commentHref ? (
+																	<Link
+																		href={commentHref}
+																		className='text-primary underline-offset-4 hover:underline'
+																	>
+																		{commentName}
+																	</Link>
+																) : (
+																	commentName
+																)}
+															</div>
+															<div>{comment.content}</div>
+														</div>
+													</div>
+												);
+											})
+										: null}
+
+									<div className='flex gap-2'>
+										<input
+											className='h-9 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm'
+											placeholder='Write a comment...'
+											value={commentInputs[post.id] || ""}
+											onChange={(event) =>
+												setCommentInputs((prev) => ({
+													...prev,
+													[post.id]: event.target.value,
+												}))
+											}
+										/>
+										<Button
+											type='button'
+											onClick={() => submitComment(post.id)}
+										>
+											Comment
+										</Button>
+									</div>
+								</div>
+							</div>
+						</CardFooter>
+					</Card>
+				);
+			})}
 
 			{editingPostId ? (
 				<Card>

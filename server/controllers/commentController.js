@@ -3,7 +3,8 @@
  * Comment creation and retrieval with encryption.
  */
 
-import { Comment, Post } from "../models/index.js";
+import { Comment, Post, Profile, User } from "../models/index.js";
+import ecc from "../crpyto/ecc.js";
 import rsa from "../crpyto/rsa.js";
 import { sign as signMac, verify as verifyMac } from "../crpyto/hmac.js";
 
@@ -22,6 +23,34 @@ function getServerRsaPublicKey() {
 function getServerRsaPrivateKey() {
 	const serialized = requireEnv("SERVER_RSA_PRIVATE_KEY");
 	return rsa.deserializePrivateKey(serialized);
+}
+
+function getServerEccPrivateKey() {
+	const serialized = requireEnv("SERVER_ECC_PRIVATE_KEY");
+	return ecc.deserializePrivateKey(serialized);
+}
+
+function buildAuthorLookup(users, profiles, hmacKey, eccPrivateKey) {
+	const usersById = new Map();
+	for (const user of users) {
+		const macOk = verifyMac(
+			[user.encryptedUsername, user.encryptedEmail, user.encryptedContact],
+			hmacKey,
+			user.hmacSignature,
+		);
+		if (!macOk) {
+			throw new Error("User integrity check failed");
+		}
+		const username = ecc.decrypt(user.encryptedUsername, eccPrivateKey);
+		usersById.set(user._id.toString(), { id: user._id.toString(), username });
+	}
+
+	const profilesByUserId = new Map();
+	for (const profile of profiles) {
+		profilesByUserId.set(profile.user.toString(), profile);
+	}
+
+	return { usersById, profilesByUserId };
 }
 
 function normalizeText(value, maxLen) {
@@ -105,6 +134,30 @@ export async function getComments(req, res) {
 			.sort({ createdAt: 1 })
 			.limit(limit);
 
+		const authorIds = Array.from(
+			new Set(comments.map((comment) => comment.author.toString())),
+		);
+
+		let usersById = new Map();
+		let profilesByUserId = new Map();
+		if (authorIds.length > 0) {
+			const [users, profiles] = await Promise.all([
+				User.find({ _id: { $in: authorIds } }).select(
+					"encryptedUsername encryptedEmail encryptedContact hmacSignature",
+				),
+				Profile.find({ user: { $in: authorIds } }).select(
+					"displayName avatarUrl user",
+				),
+			]);
+			const eccPrivateKey = getServerEccPrivateKey();
+			({ usersById, profilesByUserId } = buildAuthorLookup(
+				users,
+				profiles,
+				hmacKey,
+				eccPrivateKey,
+			));
+		}
+
 		const list = comments.map((comment) => {
 			const macOk = verifyMac(
 				[
@@ -124,10 +177,22 @@ export async function getComments(req, res) {
 				rsaPrivateKey,
 			);
 
+			const authorId = comment.author.toString();
+			const authorProfile = profilesByUserId.get(authorId);
+			const authorUser = usersById.get(authorId);
+			const author = authorUser
+				? {
+						id: authorId,
+						username: authorUser.username,
+						displayName: authorProfile?.displayName || authorUser.username,
+						avatarUrl: authorProfile?.avatarUrl || null,
+					}
+				: null;
+
 			return {
 				id: comment._id,
 				postId: comment.post,
-				author: comment.author,
+				author,
 				content,
 				createdAt: comment.createdAt,
 				parentComment: comment.parentComment,

@@ -113,19 +113,47 @@ export default function MessagesPage() {
 							.join("")
 							.slice(0, 2)
 							.toUpperCase();
+						const profileHref = conversation.otherUser?.username
+							? `/profile/${encodeURIComponent(conversation.otherUser.username)}`
+							: null;
 
 						return (
 							<Card key={conversation.id}>
 								<CardHeader className='flex flex-row items-center justify-between'>
 									<div className='flex items-center gap-3'>
-										<Avatar>
-											<AvatarImage
-												src={conversation.otherUser?.avatarUrl ?? undefined}
-											/>
-											<AvatarFallback>{initials}</AvatarFallback>
-										</Avatar>
+										{profileHref ? (
+											<Link
+												href={profileHref}
+												aria-label={`View ${name} profile`}
+											>
+												<Avatar>
+													<AvatarImage
+														src={conversation.otherUser?.avatarUrl ?? undefined}
+													/>
+													<AvatarFallback>{initials}</AvatarFallback>
+												</Avatar>
+											</Link>
+										) : (
+											<Avatar>
+												<AvatarImage
+													src={conversation.otherUser?.avatarUrl ?? undefined}
+												/>
+												<AvatarFallback>{initials}</AvatarFallback>
+											</Avatar>
+										)}
 										<div>
-											<CardTitle className='text-base'>{name}</CardTitle>
+											<CardTitle className='text-base'>
+												{profileHref ? (
+													<Link
+														href={profileHref}
+														className='text-primary underline-offset-4 hover:underline'
+													>
+														{name}
+													</Link>
+												) : (
+													name
+												)}
+											</CardTitle>
 											<CardDescription>
 												{conversation.lastMessagePreview ?? "No preview"}
 											</CardDescription>

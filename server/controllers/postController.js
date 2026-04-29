@@ -3,7 +3,8 @@
  * Post creation and feed retrieval.
  */
 
-import { Post } from "../models/index.js";
+import { Post, Profile, User } from "../models/index.js";
+import ecc from "../crpyto/ecc.js";
 import rsa from "../crpyto/rsa.js";
 import { sign as signMac, verify as verifyMac } from "../crpyto/hmac.js";
 
@@ -22,6 +23,34 @@ function getServerRsaPublicKey() {
 function getServerRsaPrivateKey() {
 	const serialized = requireEnv("SERVER_RSA_PRIVATE_KEY");
 	return rsa.deserializePrivateKey(serialized);
+}
+
+function getServerEccPrivateKey() {
+	const serialized = requireEnv("SERVER_ECC_PRIVATE_KEY");
+	return ecc.deserializePrivateKey(serialized);
+}
+
+function buildAuthorLookup(users, profiles, hmacKey, eccPrivateKey) {
+	const usersById = new Map();
+	for (const user of users) {
+		const macOk = verifyMac(
+			[user.encryptedUsername, user.encryptedEmail, user.encryptedContact],
+			hmacKey,
+			user.hmacSignature,
+		);
+		if (!macOk) {
+			throw new Error("User integrity check failed");
+		}
+		const username = ecc.decrypt(user.encryptedUsername, eccPrivateKey);
+		usersById.set(user._id.toString(), { id: user._id.toString(), username });
+	}
+
+	const profilesByUserId = new Map();
+	for (const profile of profiles) {
+		profilesByUserId.set(profile.user.toString(), profile);
+	}
+
+	return { usersById, profilesByUserId };
 }
 
 function normalizeText(value, maxLen) {
@@ -123,6 +152,34 @@ export async function getFeed(req, res) {
 		const hasMore = posts.length > limit;
 		const pageItems = hasMore ? posts.slice(0, limit) : posts;
 
+		const authorIds = Array.from(
+			new Set(
+				pageItems
+					.filter((post) => !post.isAnonymous)
+					.map((post) => post.author.toString()),
+			),
+		);
+
+		let usersById = new Map();
+		let profilesByUserId = new Map();
+		if (authorIds.length > 0) {
+			const [users, profiles] = await Promise.all([
+				User.find({ _id: { $in: authorIds } }).select(
+					"encryptedUsername encryptedEmail encryptedContact hmacSignature",
+				),
+				Profile.find({ user: { $in: authorIds } }).select(
+					"displayName avatarUrl user",
+				),
+			]);
+			const eccPrivateKey = getServerEccPrivateKey();
+			({ usersById, profilesByUserId } = buildAuthorLookup(
+				users,
+				profiles,
+				hmacKey,
+				eccPrivateKey,
+			));
+		}
+
 		const feed = pageItems.map((post) => {
 			const macOk = verifyMac(
 				[
@@ -144,6 +201,20 @@ export async function getFeed(req, res) {
 				rsaPrivateKey,
 			);
 
+			const authorId = post.author.toString();
+			const authorProfile = profilesByUserId.get(authorId);
+			const authorUser = usersById.get(authorId);
+			const author = post.isAnonymous
+				? null
+				: authorUser
+					? {
+							id: authorId,
+							username: authorUser.username,
+							displayName: authorProfile?.displayName || authorUser.username,
+							avatarUrl: authorProfile?.avatarUrl || null,
+						}
+					: null;
+
 			return {
 				id: post._id,
 				title,
@@ -151,7 +222,7 @@ export async function getFeed(req, res) {
 				category: post.category,
 				tags: post.tags,
 				createdAt: post.createdAt,
-				author: post.isAnonymous ? null : post.author,
+				author,
 			};
 		});
 

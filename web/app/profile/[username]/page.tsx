@@ -74,6 +74,22 @@ export default function ProfilePage() {
 	const [isPaging, setIsPaging] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isStartingChat, setIsStartingChat] = useState(false);
+	const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+	useEffect(() => {
+		let isMounted = true;
+		apiGet("/auth/session")
+			.then((data) => {
+				if (!isMounted) return;
+				const payload = data as { userId?: string };
+				setCurrentUserId(payload.userId ?? null);
+			})
+			.catch(() => null);
+
+		return () => {
+			isMounted = false;
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!username) return;
@@ -172,6 +188,11 @@ export default function ProfilePage() {
 					<Button asChild variant='outline'>
 						<Link href='/feed'>Back to feed</Link>
 					</Button>
+					{currentUserId && profile.userId === currentUserId ? (
+						<Button asChild variant='secondary'>
+							<Link href='/dashboard'>Update profile</Link>
+						</Button>
+					) : null}
 					<Button
 						disabled={!profile.allowMessages || isStartingChat}
 						onClick={async () => {
