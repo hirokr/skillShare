@@ -4,6 +4,8 @@ import "./globals.css";
 import { extractRouterConfig } from "uploadthing/server";
 import { ourFileRouter } from "./api/uploadthing/core";
 import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
+import SiteHeader from "../components/site-header";
+import SiteFooter from "../components/site-footer";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -29,10 +31,14 @@ export default function RootLayout({
 		<html
 			lang='en'
 			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+			suppressContentEditableWarning
+			suppressHydrationWarning
 		>
 			<body className='min-h-full flex flex-col'>
 				<NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
-				{children}
+				<SiteHeader />
+				<div className='flex-1'>{children}</div>
+				<SiteFooter />
 			</body>
 		</html>
 	);
