@@ -8,6 +8,7 @@ import commentRoutes from "./routes/comments.js";
 import profileRoutes from "./routes/profiles.js";
 import messageRoutes from "./routes/messages.js";
 import keyRoutes from "./routes/keys.js";
+import adminRoutes from "./routes/admin.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,5 +33,6 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/profiles", profileRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/keys", keyRoutes);
+app.use("/api/admin", adminRoutes);
 
 export default app;

@@ -9,19 +9,23 @@ export default function SiteHeader() {
 	const router = useRouter();
 	const [isChecking, setIsChecking] = useState(true);
 	const [isLoggedIn, setIsLoggedIn] = useState(false);
+	const [isAdmin, setIsAdmin] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 
 	useEffect(() => {
 		let isMounted = true;
 		apiGet("/auth/session")
-			.then(() => {
+			.then((data) => {
 				if (isMounted) {
 					setIsLoggedIn(true);
+					const d = data as { role?: string };
+					setIsAdmin(d?.role === "admin");
 				}
 			})
 			.catch(() => {
 				if (isMounted) {
 					setIsLoggedIn(false);
+					setIsAdmin(false);
 				}
 			})
 			.finally(() => {
@@ -65,18 +69,20 @@ export default function SiteHeader() {
 					>
 						Messages
 					</Link>
-					{/* <Link
-						href='/dashboard'
-						className='transition-colors hover:text-slate-900'
-					>
-						Dashboard
-					</Link> */}
 					<Link
 						href='/profile'
 						className='transition-colors hover:text-foreground'
 					>
 						Profile
 					</Link>
+					{isAdmin && (
+						<Link
+							href='/admin'
+							className='transition-colors hover:text-foreground text-amber-600 hover:text-amber-700'
+						>
+							Admin
+						</Link>
+					)}
 				</nav>
 				<div className='flex items-center gap-2'>
 					{isChecking ? null : isLoggedIn ? (
