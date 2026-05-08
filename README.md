@@ -138,6 +138,4 @@ npm run dev
 - Key versioning supports re-encryption after rotation.
 
 ## Useful Docs
-
-- Project spec and requirements: `CLAUDE.MD`
 - Frontend README: `web/README.md`
