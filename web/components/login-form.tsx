@@ -105,12 +105,12 @@ function CredentialsForm({ onRequires2FA, onSuccess }: CredentialsFormProps) {
                 <Field>
                     <div className="flex items-center">
                         <FieldLabel htmlFor="password">Password</FieldLabel>
-                        <a
+                        {/* <a
                             href="#"
                             className="ml-auto inline-block text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                         >
                             Forgot your password?
-                        </a>
+                        </a> */}
                     </div>
                     <Input
                         id="password"

@@ -1,0 +1,127 @@
+skillShare                            Root project folder
+├── README.md                         Project overview and instructions
+├── package-lock.json                 npm dependency lockfile for root packages
+├── structure.txt                     Annotated repository structure file
+├── server                            Backend server code and API logic
+│   ├── app.js                          Express app entry and middleware setup
+│   ├── controllers                     Route handlers for auth, posts, comments, messages, profiles
+│   │   ├── authController.js           Authentication request handlers
+│   │   ├── commentController.js        Comment CRUD request handlers
+│   │   ├── dashboardController.js      Dashboard-related endpoints
+│   │   ├── messageController.js        Messaging request handlers
+│   │   ├── postController.js           Post CRUD request handlers
+│   │   └── profileController.js        Profile request handlers
+│   ├── crpyto                        Custom cryptography utility modules
+│   │   ├── ecc.js                      ECC/ECIES key generation and encryption
+│   │   ├── hash.js                     Password hashing utilities
+│   │   ├── hmac.js                     HMAC-SHA256 implementation
+│   │   ├── rsa.js                      RSA key management and encryption
+│   │   ├── totp.js                     TOTP 2FA generation and verification
+│   │   └── utils.js                    Crypto helper functions and encoders
+│   ├── index.js                      Server bootstrap and route mounting
+│   ├── middlewares                   Request middleware for auth and security
+│   │   └── authenticate.js             JWT authentication middleware
+│   ├── models                        Mongoose data models and schemas
+│   │   ├── Comment.js                  Comment schema definition
+│   │   ├── KeyStore.js                 Key management schema
+│   │   ├── Message.js                  Message and conversation schemas
+│   │   ├── Post.js                     Post schema definition
+│   │   ├── Profile.js                  Profile schema definition
+│   │   ├── User.js                     User schema and auth data
+│   │   └── index.js                    Model exports aggregator
+│   ├── package-lock.json             Backend dependency lockfile
+│   ├── package.json                  Backend package manifest
+│   ├── routes                        API route definitions
+│   │   ├── admin.js                    Admin-only routes
+│   │   ├── auth.js                     Authentication routes
+│   │   ├── comments.js                 Comment routes
+│   │   ├── dashboard.js                Dashboard routes
+│   │   ├── keys.js                     Key public/rotation routes
+│   │   ├── messages.js                 Messaging routes
+│   │   ├── posts.js                    Post routes
+│   │   └── profiles.js                 Profile routes
+│   ├── scripts                       Maintenance and utility scripts
+│   │   ├── resign-profile-macs.js      Resign MAC signatures for profiles
+│   │   ├── rotate-expired-keys.js      Key rotation scheduler script
+│   │   └── seed.js                     Database seed data script
+│   ├── services                      Core business logic services
+│   │   ├── keyManager.js               Key generation and rotation logic
+│   │   └── messageService.js           Message processing logic
+│   ├── socket                        Real-time Socket.IO handlers
+│   │   └── messageSocket.js            Socket event handling for DMs
+│   └── utils                         Shared server utilities
+│       ├── jwt.js                      JWT signing/verification helpers
+│       └── utils.js                    General helper functions
+└── web                               Frontend Next.js application
+    ├── README.md                       Frontend-specific documentation
+    ├── app                           Next.js App Router pages and API routes
+    │   ├── admin                     Admin page route
+    │   │   └── page.tsx              Admin UI page component
+    │   ├── api                      Serverless API routes for frontend
+    │   │   └── uploadthing             UploadThing API route handlers
+    │   │       ├── core.ts                 UploadThing core helpers
+    │   │       └── route.ts                UploadThing route endpoint
+    │   ├── auth                     Authentication pages
+    │   │   ├── login                 Login page route
+    │   │   │   └── page.tsx                Login page component
+    │   │   └── signup                Signup page route
+    │   │       └── page.tsx                Signup page component
+    │   ├── dashboard                Dashboard page route
+    │   │   └── page.tsx                    Dashboard UI component
+    │   ├── favicon.ico              Site favicon asset
+    │   ├── feed                     Feed page route
+    │   │   └── page.tsx                    Feed UI component
+    │   ├── globals.css               Global frontend styles
+    │   ├── layout.tsx                Root layout wrapper component
+    │   ├── lib                       Frontend helper modules
+    │   │   ├── crypto                Client-side crypto utilities
+    │   │   │   ├── ecc.js               ECC helper utilities for client use
+    │   │   │   ├── hmac.js              HMAC helper utilities for client use
+    │   │   │   ├── rsa.js               RSA helper utilities for client use
+    │   │   │   └── utils.js             Crypto helper functions for frontend
+    │   │   └── socket.ts             Socket.IO client singleton
+    │   ├── messages                    Messages pages and conversation views
+    │   │   ├── [conversationId]      Dynamic conversation route
+    │   │   │   └── page.tsx             Conversation chat page component
+    │   │   └── page.tsx                 Messages list page component
+    │   ├── page.tsx                  Root landing page component
+    │   ├── posts                     Post creation pages
+    │   │   └── new                   New post form route
+    │   │       └── page.tsx          Post creation page component
+    │   └── profile                      Profile pages and routes
+    │       ├── [username]            Dynamic profile route
+    │       │   └── page.tsx                User profile page component
+    │       └── page.tsx                Current user profile page component
+    ├── components                    Reusable frontend UI components
+    │   ├── login-form.tsx              Login form component
+    │   ├── signup-form.tsx             Signup form component
+    │   ├── site-footer.tsx             Footer component
+    │   ├── site-header.tsx             Header/navigation component
+    │   ├── two-factor-settings.tsx     Two-factor authentication settings UI
+    │   └── ui                          UI primitives and shared widgets
+    │       ├── aspect-ratio.tsx            Aspect ratio wrapper
+    │       ├── avatar.tsx                  Avatar display component
+    │       ├── button.tsx                  Button primitive component
+    │       ├── card.tsx                    Card layout component
+    │       ├── field.tsx                   Field wrapper component
+    │       ├── input.tsx                   Input field component
+    │       ├── label.tsx                   Label component
+    │       ├── scroll-area.tsx             Scroll area wrapper
+    │       ├── separator.tsx               Separator component
+    │       ├── sonner.tsx                  Notification/toast helper
+    │       ├── spinner.tsx                 Loading spinner component
+    │       └── textarea.tsx                Textarea component
+    ├── components.json               Component metadata file
+    ├── eslint.config.mjs             ESLint config for frontend
+    ├── lib                           Frontend helper utility modules
+    │   ├── api.ts                      API client wrapper
+    │   └── utils.ts                    General frontend utilities
+    ├── package-lock.json             Frontend dependency lockfile
+    ├── package.json                  Frontend package manifest
+    ├── postcss.config.mjs            PostCSS configuration
+    ├── public                        Static frontend assets
+    │   ├── file.svg                    SVG icon asset
+    │   ├── globe.svg                   SVG icon asset
+    │   ├── vercel.svg                  SVG icon asset
+    │   └── window.svg                  SVG icon asset
+    └── tsconfig.json                 TypeScript configuration for frontend

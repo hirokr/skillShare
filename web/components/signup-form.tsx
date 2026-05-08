@@ -158,17 +158,17 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                                 <Button type='submit' disabled={isLoading}>
                                     {isLoading ? "Creating..." : "Create Account"}
                                 </Button>
-                                <Button variant='outline' type='button' disabled={isLoading}>
+                                {/* <Button variant='outline' type='button' disabled={isLoading}>
                                     Sign up with Google
                                 </Button>
                                 {error ? (
                                     <FieldDescription className='px-6 text-center text-destructive'>
                                         {error}
                                     </FieldDescription>
-                                ) : null}
+                                ) : null} */}
                                 <FieldDescription className='px-6 text-center'>
                                     Already have an account?{" "}
-                                    <a href='#' className='text-primary hover:underline'>
+                                    <a href='/auth/login' className='text-primary hover:underline'>
                                         Sign in
                                     </a>
                                 </FieldDescription>

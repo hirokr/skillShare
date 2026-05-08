@@ -128,7 +128,7 @@ export default function Home() {
 							Launch your encrypted community hub with a single account, invite
 							trusted members, and keep every conversation protected.
 						</p>
-						<div className='flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center'>
+						{/* <div className='flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center'>
 							<a
 								className='inline-flex h-12 w-full items-center justify-center rounded-full bg-sky-300 px-6 text-sm font-semibold text-slate-900 transition-transform hover:-translate-y-0.5 sm:w-auto'
 								href='/auth/signup'
@@ -141,7 +141,7 @@ export default function Home() {
 							>
 								View dashboard
 							</a>
-						</div>
+						</div> */}
 					</div>
 				</section>
 			</main>
