@@ -106,29 +106,37 @@ npm run dev
 ## Project Structure
 
 ```
-.
-├── CLAUDE.MD                # Source-of-truth project spec
-├── README.md                # This file
-├── server/                  # Express.js API server
+SkillShare
+├── README.md
+├── package-lock.json
+├── structure.txt
+├── server
 │   ├── app.js
 │   ├── index.js
-│   ├── controllers/
-│   ├── crpyto/              # Custom crypto (RSA, ECC, HMAC, hash)
-│   ├── middlewares/
-│   ├── models/
-│   ├── routes/
-│   ├── scripts/
-│   ├── services/
-│   ├── socket/
-│   └── utils/
-└── web/                     # Next.js 14 App Router
-    ├── app/
-    ├── components/
-    ├── lib/
-    │   └── crypto/          # Client-side crypto mirror
-    ├── public/
-    └── utils/
+│   ├── controllers
+│   ├── crpyto
+│   ├── middlewares
+│   ├── models
+│   ├── routes
+│   ├── scripts
+│   ├── services
+│   ├── socket
+│   └── utils
+└── web
+    ├── README.md
+    ├── app
+    ├── components
+    ├── lib
+    │   └── crypto
+    ├── public
+    ├── utils
+    ├── package.json
+    ├── package-lock.json
+    ├── tsconfig.json
+    ├── eslint.config.mjs
+    └── postcss.config.mjs
 ```
+More detailed Structure is in Structure.txt file.
 
 ## Security Notes
 
