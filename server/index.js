@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { Server as SocketServer } from "socket.io";
 import app from "./app.js";
 import { registerMessageSocket } from "./socket/messageSocket.js";
+import { checkAndRotateExpired } from "./services/keyManager.js";
 
 const PORT = process.env.PORT || 5000;
 const allowedOrigin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
@@ -28,6 +29,10 @@ const startServer = async () => {
 	server.listen(PORT, () => {
 		console.log(`Server is running on port ${PORT}`);
 	});
+	// Check for expired keys on startup (non-blocking)
+	checkAndRotateExpired().catch((err) =>
+		console.error("[keyManager] Startup rotation check failed:", err?.message),
+	);
 };
 
 startServer().catch((error) => {
