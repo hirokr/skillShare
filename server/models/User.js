@@ -69,6 +69,10 @@ const UserSchema = new mongoose.Schema(
 			default: null,
 			// TOTP secret encrypted with RSA-OAEP before storage
 		},
+		pendingTwoFactorSecret: {
+			type: String,
+			default: null,
+		},
 
 		// ── Key pairs ──────────────────────────────────────────────────────────────
 		publicKey: {

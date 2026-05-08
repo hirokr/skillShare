@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TwoFactorSettings } from "@/components/two-factor-settings";
 
 type DashboardUser = {
 	id: string;
@@ -404,6 +405,8 @@ export default function DashboardPage() {
 					</form>
 				</CardContent>
 			</Card>
+
+			<TwoFactorSettings />
 		</div>
 	);
 }

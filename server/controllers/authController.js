@@ -390,6 +390,7 @@ export async function setup2FA(req, res) {
 		return res.status(200).json({
 			message: "Scan the QR code with your authenticator app, then call /auth/2fa/confirm.",
 			otpauthUrl,
+			secret: secretHex,
 		});
 	} catch (error) {
 		return res.status(500).json({ message: "2FA setup failed" });
@@ -586,7 +587,24 @@ export async function keys(req, res) {
 	}
 }
  
+/**
+ * GET /auth/2fa/status
+ * Returns whether 2FA is currently enabled for the authenticated user.
+ */
+export async function get2FAStatus(req, res) {
+	try {
+		const userId = req.user?.id;
+		if (!userId) return res.status(401).json({ message: "Unauthorized" });
+		const user = await User.findById(userId).select("twoFactorEnabled");
+		if (!user) return res.status(404).json({ message: "User not found" });
+		return res.status(200).json({ twoFactorEnabled: !!user.twoFactorEnabled });
+	} catch {
+		return res.status(500).json({ message: "Failed to get 2FA status" });
+	}
+}
+
+
 export default {
-	register, login, verify2FA, setup2FA, confirm2FA, disable2FA,
+	register, login, verify2FA, setup2FA, confirm2FA, disable2FA, get2FAStatus,
 	refresh, logout, me, changePassword, session, keys,
 };
